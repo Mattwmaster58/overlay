@@ -12,27 +12,32 @@ from PIL import Image
 
 # hack to get us enum support :), kinda repetitive :|
 class Position(str, enum.Enum):
-    TOP_LEFT = "tl"
-    TOP = "t"
-    TOP_RIGHT = "tr"
-    RIGHT = "r"
-    BOTTOM_RIGHT = "br"
-    BOTTOM = "b"
-    BOTTOM_LEFT = "bl"
-    LEFT = 'l'
-    CENTER = "c"
+    TOP_LEFT = "top-left"
+    TOP = "top"
+    TOP_RIGHT = "top-right"
+    RIGHT = "right"
+    BOTTOM_RIGHT = "bottom-right"
+    BOTTOM = "bottom"
+    BOTTOM_LEFT = "bottom-left"
+    LEFT = 'left'
+    CENTER = "center"
 
 
 @click.command("overlay")
-@click.option("--position", "-p", default="tl", type=click.Choice(Position))
-@click.option("--relative-height", "-h", default=None, type=click.FloatRange(0.01, 1))
-@click.option("--relative-width", "-w", default=0.2, type=click.FloatRange(0.01, 1))
+@click.option("--position", "-p", default="top-left", type=click.Choice(Position))
+@click.option("--relative-height", "-h", default=None, type=click.FloatRange(0.01, 1),
+              help="width as a decimal relative to the base image's width")
+@click.option("--relative-width", "-w", default=0.2, type=click.FloatRange(0.01, 1),
+              help="width as a decimal relative to the base image's height")
 @click.option("--input", "-i", default=Path("."),
-              type=click.Path(dir_okay=True, exists=True, file_okay=False, writable=True, path_type=Path))
-@click.option("--watermark", "-w", default=None,
-              type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True, path_type=Path))
+              type=click.Path(dir_okay=True, exists=True, file_okay=False, writable=True, path_type=Path),
+              help="folder to scan for images to overlay. If unspecified, defaults to current working directory")
+@click.option("--overlay", "-o", default=None,
+              type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True, path_type=Path),
+              help="specifies the image to overlay on the base images. If unspecified, the input folder will be scanned "
+                   "for a supported image format with the name \"overlay\"")
 @click.option("--verbose", "-v", help="enables debug logging", is_flag=True, default=False)
-def main(position: Position, relative_height: float, relative_width: float, input: Path, watermark: Path,
+def main(position: Position, relative_height: float, relative_width: float, input: Path, overlay: Path,
          verbose: bool):
     logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO)
     logger = logging.getLogger()
@@ -43,28 +48,28 @@ def main(position: Position, relative_height: float, relative_width: float, inpu
 
     candidates = []
     SUPPORTED_FORMATS = re.compile("\.(bmp|ico|jpeg|jpg|png|tiff|webp)")
+    logger.info(f"scanning input folder '{input.resolve().as_posix()}'")
     for path in input.iterdir():
-        logger.info(f"scanning input folder '{input.resolve().as_posix()}'")
         if path.is_file() and SUPPORTED_FORMATS.match(path.suffix):
-            if path.stem == "template":
-                if watermark is None:
-                    watermark = path
+            if path.stem == "overlay":
+                if overlay is None:
+                    overlay = path
             else:
                 candidates.append(path)
 
     logger.debug(f"{len(candidates)} image candidates")
-    logger.info(f"opening watermark {watermark.as_posix()}")
-    watermark_img = Image.open(watermark)
-
+    logger.info(f"opening overlay image: {overlay.as_posix()}")
+    watermark_img = Image.open(overlay)
+    total_transformed = 0
     # we need to resize, then overlay for each image
     overlay_aspect_ratio = watermark_img.width / watermark_img.height
     for img_path in candidates:
-        new_img_fname = img_path.with_stem(f"o_{img_path.stem}")
-        if new_img_fname.exists():
-            logger.debug(f"skipping {img_path.as_posix()} because {new_img_fname.as_posix()} exists")
-            continue
+        new_img_fname = img_path # .with_name(f"o_{img_path.stem}{img_path.suffix}")
+        # if new_img_fname.exists():
+        #     logger.debug(f"skipping {img_path.as_posix()} because {new_img_fname.as_posix()} exists")
+        #     continue
 
-        img = Image.load(img_path)
+        img = Image.open(img_path).convert("RGBA")
 
         if relative_width is None:
             overlay_width = overlay_aspect_ratio * (relative_height * img.height)
@@ -72,7 +77,7 @@ def main(position: Position, relative_height: float, relative_width: float, inpu
             overlay_width = relative_width * img.width
 
         if relative_height is None:
-            overlay_height = overlay_aspect_ratio * (relative_width * img.width)
+            overlay_height = (relative_width * img.width) / overlay_aspect_ratio
         else:
             overlay_height = relative_height * img.height
 
@@ -86,7 +91,7 @@ def main(position: Position, relative_height: float, relative_width: float, inpu
         elif position in (Position.TOP, Position.CENTER, Position.BOTTOM):
             overlay_x = int(img.width / 2 - resized_overlay.width / 2)
         else:  # ie, position in (Position.RIGHT, Position.BOTTOM_RIGHT, Position.TOP_RIGHT):
-            overlay_x = img.width - overlay_width
+            overlay_x = img.width - resized_overlay.width
 
         if position in (Position.TOP_LEFT, Position.TOP, Position.TOP_RIGHT):
             overlay_y = 0
@@ -95,8 +100,11 @@ def main(position: Position, relative_height: float, relative_width: float, inpu
         else:  # ie, position in (Position.BOTTOM_LEFT, Position.BOTTOM, Position.BOTTOM_RIGHT):
             overlay_y = img.height - resized_overlay.height
 
-        img.paste(resized_overlay, (overlay_x, overlay_y))
+        img.alpha_composite(resized_overlay, (overlay_x, overlay_y))
         img.save(new_img_fname)
+        logger.debug(f"saving transformed image: {new_img_fname.as_posix()}")
+        total_transformed += 1
+    logger.info(f"{total_transformed} images overlayed")
 
 
 if __name__ == '__main__':

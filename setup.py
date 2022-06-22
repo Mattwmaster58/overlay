@@ -7,7 +7,7 @@ setup(
     install_requires=open("requirements.txt").read().split("\n"),
     entry_points={
     'console_scripts': [
-        'overlay = overlay.cli:cli',
+        'overlay = overlay.main:cli',
     ]}
 )
 

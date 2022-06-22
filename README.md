@@ -19,3 +19,27 @@ pipx install -e ./overlay
 ```
  - `-e` install in development mode, so anytime you may need to pull an upgrade from this repo, a simple git pull _should_ update the app
  - You may be prompted by `pipx` to add its paths to your PATH variable, you will need to do this to ensure `overlay` is available system wide.
+
+### Usage
+
+```
+Usage: overlay [OPTIONS]
+
+Options:
+  -p, --position [top-left|top|top-right|right|bottom-right|bottom|bottom-left|left|center]
+  -h, --relative-height FLOAT RANGE
+                                  width as a decimal relative to the base
+                                  image's width  [0.01<=x<=1]
+  -w, --relative-width FLOAT RANGE
+                                  width as a decimal relative to the base
+                                  image's height  [0.01<=x<=1]
+  -i, --input DIRECTORY           folder to scan for images to overlay. If
+                                  unspecified, defaults to current working
+                                  directory
+  -o, --overlay FILE              specifies the image to overlay on the base
+                                  images. If unspecified, the input folder
+                                  will be scanned for a supported image format
+                                  with the name "overlay"
+  -v, --verbose                   enables debug logging
+  --help                          Show this message and exit.
+```

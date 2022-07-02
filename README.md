@@ -11,7 +11,7 @@ pip install pipx
 ```
  - Clone the repo
 ```bash
-git glone https://github.com/Mattwmaster58/overlay.git
+git clone https://github.com/Mattwmaster58/overlay.git
 ```
  - Install with `pipx`
 ```bash

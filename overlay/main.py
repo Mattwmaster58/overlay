@@ -36,9 +36,10 @@ class Position(str, enum.Enum):
               type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True, path_type=Path),
               help="specifies the image to overlay on the base images. If unspecified, the input folder will be scanned "
                    "for a supported image format with the name \"overlay\"")
+@click.option("--in-place", default=False, is_flag=True, help="perform the overlay in place")
 @click.option("--verbose", "-v", help="enables debug logging", is_flag=True, default=False)
 def main(position: Position, relative_height: float, relative_width: float, input: Path, overlay: Path,
-         verbose: bool):
+         verbose: bool, in_place: bool):
     logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO)
     logger = logging.getLogger()
     logger.info(f'overlay v{__version__}')
@@ -57,6 +58,13 @@ def main(position: Position, relative_height: float, relative_width: float, inpu
             else:
                 candidates.append(path)
 
+    if overlay is None:
+        logger.error("overlay image could not be found from input directory")
+        exit(-1)
+    elif not overlay.exists():
+        logger.error(f"specified overlay image '{overlay.absolute().as_posix()}' does not appear to exist")
+        exit(-1)
+
     logger.debug(f"{len(candidates)} image candidates")
     logger.info(f"opening overlay image: {overlay.as_posix()}")
     watermark_img = Image.open(overlay)
@@ -64,10 +72,13 @@ def main(position: Position, relative_height: float, relative_width: float, inpu
     # we need to resize, then overlay for each image
     overlay_aspect_ratio = watermark_img.width / watermark_img.height
     for img_path in candidates:
-        new_img_fname = img_path # .with_name(f"o_{img_path.stem}{img_path.suffix}")
-        # if new_img_fname.exists():
-        #     logger.debug(f"skipping {img_path.as_posix()} because {new_img_fname.as_posix()} exists")
-        #     continue
+        if not in_place:
+            new_img_fname = img_path.with_name(f"o_{img_path.stem}{img_path.suffix}")
+            if new_img_fname.exists():
+                logger.debug(f"skipping {img_path.as_posix()} because {new_img_fname.as_posix()} exists")
+                continue
+        else:
+            new_img_fname = img_path
 
         img = Image.open(img_path).convert("RGBA")
 

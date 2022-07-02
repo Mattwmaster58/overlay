@@ -40,6 +40,7 @@ Options:
                                   images. If unspecified, the input folder
                                   will be scanned for a supported image format
                                   with the name "overlay"
+  --in-place                      perform the overlay in place
   -v, --verbose                   enables debug logging
   --help                          Show this message and exit.
 ```

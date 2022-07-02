@@ -43,3 +43,9 @@ Options:
   -v, --verbose                   enables debug logging
   --help                          Show this message and exit.
 ```
+
+### Demo
+
+All positions of overlay image demonstrated below
+
+![demo image](demo.png)

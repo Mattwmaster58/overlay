@@ -48,7 +48,11 @@ def main(position: Position, relative_height: float, relative_width: float, inpu
         logger.error("please specify at least one of relative-width, relative-height")
 
     candidates = []
-    SUPPORTED_FORMATS = re.compile("\.(bmp|ico|jpeg|jpg|png|tiff|webp)")
+
+    transparent_supporting_formats = ("bmp", "png", "tiff", "webp", "ico")
+    transparent_unsupporting_formats = ("jpeg", "jpg")
+    SUPPORTED_FORMATS = re.compile(fr"\.({'|'.join([*transparent_supporting_formats, *transparent_unsupporting_formats])})")
+
     logger.info(f"scanning input folder '{input.resolve().as_posix()}'")
     for path in input.iterdir():
         if path.is_file() and SUPPORTED_FORMATS.match(path.suffix):
@@ -112,6 +116,9 @@ def main(position: Position, relative_height: float, relative_width: float, inpu
             overlay_y = img.height - resized_overlay.height
 
         img.alpha_composite(resized_overlay, (overlay_x, overlay_y))
+        if new_img_fname.suffix.lstrip(".") in transparent_unsupporting_formats:
+            logger.debug("dropping channel A, image format does not support it")
+            img = img.convert("RGB")
         img.save(new_img_fname)
         logger.debug(f"saving transformed image: {new_img_fname.as_posix()}")
         total_transformed += 1
